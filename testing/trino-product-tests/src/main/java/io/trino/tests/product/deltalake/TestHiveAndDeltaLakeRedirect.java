@@ -51,7 +51,7 @@ public class TestHiveAndDeltaLakeRedirect
     {
         String tableName = "redirect_to_delta_" + randomTableSuffix();
 
-        onDelta().executeQuery(createTableInDatabricks(tableName, false));
+        onDelta().executeQuery(createTableOnDelta(tableName, false));
 
         try {
             QueryResult databricksResult = onDelta().executeQuery("SELECT * FROM " + tableName);
@@ -72,7 +72,7 @@ public class TestHiveAndDeltaLakeRedirect
 
         String schemaLocation = format("s3://%s/delta-redirect-test-extraordinary", bucketName);
         onDelta().executeQuery(format("CREATE SCHEMA IF NOT EXISTS extraordinary LOCATION \"%s\"", schemaLocation));
-        onDelta().executeQuery(createTableInDatabricks("extraordinary", tableName, false));
+        onDelta().executeQuery(createTableOnDelta("extraordinary", tableName, false));
         try {
             QueryResult databricksResult = onDelta().executeQuery("SELECT * FROM extraordinary." + tableName);
             QueryResult hiveResult = onTrino().executeQuery(format("SELECT * FROM hive.extraordinary.\"%s\"", tableName));
@@ -91,7 +91,7 @@ public class TestHiveAndDeltaLakeRedirect
         String tableName = "redirect_to_nonexistent_delta_" + randomTableSuffix();
 
         try {
-            onDelta().executeQuery(createTableInDatabricks(tableName, false));
+            onDelta().executeQuery(createTableOnDelta(tableName, false));
 
             onTrino().executeQuery("SET SESSION hive.delta_lake_catalog_name = 'epsilon'");
 
@@ -109,7 +109,7 @@ public class TestHiveAndDeltaLakeRedirect
     {
         String tableName = "redirect_to_delta_with_use_" + randomTableSuffix();
 
-        onDelta().executeQuery(createTableInDatabricks(tableName, false));
+        onDelta().executeQuery(createTableOnDelta(tableName, false));
 
         try {
             onTrino().executeQuery("USE hive.default");
@@ -130,7 +130,7 @@ public class TestHiveAndDeltaLakeRedirect
     {
         String tableName = "delta_lake_unpartitioned_table_" + randomTableSuffix();
 
-        onDelta().executeQuery(createTableInDatabricks(tableName, false));
+        onDelta().executeQuery(createTableOnDelta(tableName, false));
 
         try {
             assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM hive.default.\"%s$partitions\"", tableName)))
@@ -147,7 +147,7 @@ public class TestHiveAndDeltaLakeRedirect
     {
         String tableName = "delta_lake_partitioned_table_" + randomTableSuffix();
 
-        onDelta().executeQuery(createTableInDatabricks(tableName, true));
+        onDelta().executeQuery(createTableOnDelta(tableName, true));
 
         try {
             assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM hive.default.\"%s$partitions\"", tableName)))
@@ -328,7 +328,7 @@ public class TestHiveAndDeltaLakeRedirect
     {
         String tableName = "delta_insert_by_hive_" + randomTableSuffix();
 
-        onDelta().executeQuery(createTableInDatabricks(tableName, true));
+        onDelta().executeQuery(createTableOnDelta(tableName, true));
 
         try {
             onTrino().executeQuery(format("INSERT INTO hive.default.\"%s\" VALUES (1234567890, 'San Escobar', 5, 'If I had a world of my own, everything would be nonsense')", tableName));
@@ -366,7 +366,7 @@ public class TestHiveAndDeltaLakeRedirect
     {
         String tableName = "delta_describe_by_hive_" + randomTableSuffix();
 
-        onDelta().executeQuery(createTableInDatabricks(tableName, true));
+        onDelta().executeQuery(createTableOnDelta(tableName, true));
 
         try {
             List<Row> expectedResults = ImmutableList.of(
@@ -403,7 +403,7 @@ public class TestHiveAndDeltaLakeRedirect
     {
         String tableName = "delta_show_create_table_by_hive_" + randomTableSuffix();
 
-        onDelta().executeQuery(createTableInDatabricks(tableName, true));
+        onDelta().executeQuery(createTableOnDelta(tableName, true));
 
         try {
             assertThat(onTrino().executeQuery(format("SHOW CREATE TABLE hive.default.\"%s\"", tableName)))
@@ -438,7 +438,7 @@ public class TestHiveAndDeltaLakeRedirect
         String tableName = "delta_alter_table_by_hive_" + randomTableSuffix();
         String newTableName = tableName + "_new";
 
-        onDelta().executeQuery(createTableInDatabricks(tableName, true));
+        onDelta().executeQuery(createTableOnDelta(tableName, true));
 
         try {
             onTrino().executeQuery("ALTER TABLE hive.default.\"" + tableName + "\" RENAME TO \"" + newTableName + "\"");
@@ -473,7 +473,7 @@ public class TestHiveAndDeltaLakeRedirect
     {
         String tableName = "delta_comment_table_by_hive_" + randomTableSuffix();
 
-        onDelta().executeQuery(createTableInDatabricks(tableName, true));
+        onDelta().executeQuery(createTableOnDelta(tableName, true));
 
         try {
             assertThat(onTrino().executeQuery("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = 'delta' AND schema_name = 'default' AND table_name = '" + tableName + "'"))
@@ -494,7 +494,7 @@ public class TestHiveAndDeltaLakeRedirect
 
         String schemaLocation = format("s3://%s/delta-redirect-test-extraordinary", bucketName);
         onDelta().executeQuery(format("CREATE SCHEMA IF NOT EXISTS extraordinary LOCATION \"%s\"", schemaLocation));
-        onDelta().executeQuery(createTableInDatabricks(destSchema, destTableName, false));
+        onDelta().executeQuery(createTableOnDelta(destSchema, destTableName, false));
 
         try {
             onTrino().executeQuery(format("INSERT INTO hive.%s.\"%s\" (nationkey, name, regionkey) VALUES (26, 'POLAND', 3)", destSchema, destTableName));
@@ -529,7 +529,7 @@ public class TestHiveAndDeltaLakeRedirect
 
         String tableName = "redirect_to_delta_information_schema_columns_table_" + randomTableSuffix();
         try {
-            onDelta().executeQuery(createTableInDatabricks(schemaName, tableName, false));
+            onDelta().executeQuery(createTableOnDelta(schemaName, tableName, false));
 
             // via redirection with table filter
             assertThat(onTrino().executeQuery(
@@ -614,7 +614,7 @@ public class TestHiveAndDeltaLakeRedirect
 
         String tableName = "redirect_to_delta_system_jdbc_columns_table_" + randomTableSuffix();
         try {
-            onDelta().executeQuery(createTableInDatabricks(schemaName, tableName, false));
+            onDelta().executeQuery(createTableOnDelta(schemaName, tableName, false));
 
             // via redirection with table filter
             assertThat(onTrino().executeQuery(
@@ -782,13 +782,13 @@ public class TestHiveAndDeltaLakeRedirect
         return new Object[][] {{true}, {false}};
     }
 
-    private String createTableInDatabricks(String tableName, boolean partitioned)
+    private String createTableOnDelta(String tableName, boolean partitioned)
     {
-        return createTableInDatabricks("default", tableName, partitioned);
+        return createTableOnDelta("default", tableName, partitioned);
     }
 
     @Language("SQL")
-    private String createTableInDatabricks(String schema, String tableName, boolean partitioned)
+    private String createTableOnDelta(String schema, String tableName, boolean partitioned)
     {
         return "CREATE TABLE " + schema + "." + tableName + " " +
                 "USING DELTA " +
