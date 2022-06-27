@@ -70,7 +70,8 @@ public class TestHiveAndDeltaLakeRedirect
     {
         String tableName = "redirect_to_delta_non_default_schema_" + randomTableSuffix();
 
-        onDelta().executeQuery("CREATE SCHEMA IF NOT EXISTS extraordinary");
+        String schemaLocation = format("s3://%s/delta-redirect-test-extraordinary", bucketName);
+        onDelta().executeQuery(format("CREATE SCHEMA IF NOT EXISTS extraordinary LOCATION \"%s\"", schemaLocation));
         onDelta().executeQuery(createTableInDatabricks("extraordinary", tableName, false));
         try {
             QueryResult databricksResult = onDelta().executeQuery("SELECT * FROM extraordinary." + tableName);
@@ -491,7 +492,8 @@ public class TestHiveAndDeltaLakeRedirect
         String destSchema = "extraordinary";
         String destTableName = "create_delta_table_from_hive_non_default_schema_" + randomTableSuffix();
 
-        onDelta().executeQuery("CREATE SCHEMA IF NOT EXISTS extraordinary");
+        String schemaLocation = format("s3://%s/delta-redirect-test-extraordinary", bucketName);
+        onDelta().executeQuery(format("CREATE SCHEMA IF NOT EXISTS extraordinary LOCATION \"%s\"", schemaLocation));
         onDelta().executeQuery(createTableInDatabricks(destSchema, destTableName, false));
 
         try {
