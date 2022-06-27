@@ -34,10 +34,16 @@ public class SuiteDeltaLakeDatabricks
                 testOnEnvironment(EnvSinglenodeDeltaLakeDatabricks73.class)
                         .withGroups("configured_features", "delta-lake-databricks")
                         .withExcludedGroups("delta-lake-exclude-73")
+                        .withExcludedTests(
+                                // AWS Glue does not support table comments
+                                "io.trino.tests.product.deltalake.TestHiveAndDeltaLakeRedirect.testDeltaToHiveCommentTable")
                         .build(),
 
                 testOnEnvironment(EnvSinglenodeDeltaLakeDatabricks91.class)
                         .withGroups("configured_features", "delta-lake-databricks")
+                        .withExcludedTests(
+                                // AWS Glue does not support table comments
+                                "io.trino.tests.product.deltalake.TestHiveAndDeltaLakeRedirect.testDeltaToHiveCommentTable")
                         .build());
     }
 }
