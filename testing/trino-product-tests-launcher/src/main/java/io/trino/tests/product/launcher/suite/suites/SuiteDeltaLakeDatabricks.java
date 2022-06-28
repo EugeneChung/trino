@@ -36,14 +36,18 @@ public class SuiteDeltaLakeDatabricks
                         .withExcludedGroups("delta-lake-exclude-73")
                         .withExcludedTests(
                                 // AWS Glue does not support table comments
-                                "io.trino.tests.product.deltalake.TestHiveAndDeltaLakeRedirect.testDeltaToHiveCommentTable")
+                                "io.trino.tests.product.deltalake.TestHiveAndDeltaLakeRedirect.testDeltaToHiveCommentTable",
+                                // TODO https://github.com/trinodb/trino/issues/13017
+                                "io.trino.tests.product.deltalake.TestDeltaLakeDropTableCompatibility.testCreateManagedTableInDeltaDropTableInTrino")
                         .build(),
 
                 testOnEnvironment(EnvSinglenodeDeltaLakeDatabricks91.class)
                         .withGroups("configured_features", "delta-lake-databricks")
                         .withExcludedTests(
                                 // AWS Glue does not support table comments
-                                "io.trino.tests.product.deltalake.TestHiveAndDeltaLakeRedirect.testDeltaToHiveCommentTable")
+                                "io.trino.tests.product.deltalake.TestHiveAndDeltaLakeRedirect.testDeltaToHiveCommentTable",
+                                // TODO https://github.com/trinodb/trino/issues/13017
+                                "io.trino.tests.product.deltalake.TestDeltaLakeDropTableCompatibility.testCreateManagedTableInDeltaDropTableInTrino")
                         .build());
     }
 }
