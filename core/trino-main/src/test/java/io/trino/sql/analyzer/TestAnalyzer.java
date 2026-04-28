@@ -471,6 +471,15 @@ public class TestAnalyzer
         assertFails("SELECT ROW(1, 2).* EXCLUDE (foo)")
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:8: EXCLUDE and REPLACE are not supported with row type expressions");
+
+        // qualified EXCLUDE entry resolves via relation alias
+        analyze("SELECT * EXCLUDE (t.a) FROM (VALUES (1, 2)) t(a, b)");
+        analyze("SELECT t.* EXCLUDE (t.a) FROM (VALUES (1, 2)) t(a, b)");
+
+        // trailing column aliases counted against retained columns after EXCLUDE
+        analyze("SELECT t.* EXCLUDE (a) AS (x, y) FROM (VALUES (1, 2, 3)) t(a, b, c)");
+        assertFails("SELECT t.* EXCLUDE (a) AS (x) FROM (VALUES (1, 2, 3)) t(a, b, c)")
+                .hasMessageMatching(".*Column alias list has 1 entries but relation has 2 columns.*");
     }
 
     @Test

@@ -14,6 +14,7 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
@@ -894,5 +895,23 @@ public class TestSqlFormatter
                         new NodeLocation(1, 3),
                         simpleQuery(selectList(new LongLiteral(new NodeLocation(1, 10), "1")))))))
                 .isEqualTo("-(SELECT 1\n\n)");
+    }
+
+    @Test
+    public void testAllColumnsExcludeReplace()
+    {
+        SqlParser parser = new SqlParser();
+        assertThat(formatSql(parser.createStatement("SELECT * EXCLUDE (a) FROM t")))
+                .isEqualTo("SELECT * EXCLUDE (a)\nFROM\n  t\n");
+        assertThat(formatSql(parser.createStatement("SELECT * EXCLUDE (a, b) FROM t")))
+                .isEqualTo("SELECT * EXCLUDE (a, b)\nFROM\n  t\n");
+        assertThat(formatSql(parser.createStatement("SELECT * REPLACE (lower(b) AS b) FROM t")))
+                .isEqualTo("SELECT * REPLACE (lower(b) AS b)\nFROM\n  t\n");
+        assertThat(formatSql(parser.createStatement("SELECT * EXCLUDE (a) REPLACE (lower(b) AS b) FROM t")))
+                .isEqualTo("SELECT * EXCLUDE (a) REPLACE (lower(b) AS b)\nFROM\n  t\n");
+        assertThat(formatSql(parser.createStatement("SELECT t.* EXCLUDE (a) FROM t")))
+                .isEqualTo("SELECT t.* EXCLUDE (a)\nFROM\n  t\n");
+        assertThat(formatSql(parser.createStatement("SELECT t.* EXCLUDE (t.a) FROM t")))
+                .isEqualTo("SELECT t.* EXCLUDE (t.a)\nFROM\n  t\n");
     }
 }

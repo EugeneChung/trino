@@ -221,6 +221,32 @@ public class TestSelectAll
                 .failure().hasMessageMatching(".*Column \"missing\" in EXCLUDE list not found in relation.*");
         assertThat(assertions.query("SELECT * REPLACE (1 AS missing) FROM (VALUES (1)) t(a)"))
                 .failure().hasMessageMatching(".*Column \"missing\" in REPLACE list not found in relation.*");
+
+        // qualified EXCLUDE entry: EXCLUDE (t.col)
+        assertThat(assertions.query("SELECT * EXCLUDE (t.b) FROM (VALUES (1, 2, 3)) t(a, b, c)"))
+                .matches("VALUES (1, 3)");
+        assertThat(assertions.query("SELECT t.* EXCLUDE (t.b) FROM (VALUES (1, 2, 3)) t(a, b, c)"))
+                .matches("VALUES (1, 3)");
+
+        // REPLACE expression references sibling columns
+        assertThat(assertions.query("SELECT * REPLACE (a + b AS a) FROM (VALUES (1, 10)) t(a, b)"))
+                .matches("VALUES (11, 10)");
+
+        // JOIN: t.* EXCLUDE filters only t's columns; u columns retained
+        assertThat(assertions.query(
+                "SELECT t.* EXCLUDE (b), u.* FROM (VALUES (1, 2, 3)) t(a, b, c) CROSS JOIN (VALUES (4, 5)) u(d, e)"))
+                .matches("VALUES (1, 3, 4, 5)");
+
+        // Case preservation: REPLACE keeps original column name casing
+        assertThat(assertions.query(
+                "SELECT \"City\" FROM (SELECT * REPLACE (lower(\"City\") AS \"City\") FROM (VALUES 'NYC') t(\"City\"))"))
+                .matches("VALUES 'nyc'");
+
+        // ORDER BY referencing excluded column resolves via FROM scope
+        assertThat(assertions.query(
+                "SELECT * EXCLUDE (b) FROM (VALUES (1, 30), (2, 10), (3, 20)) t(a, b) ORDER BY b"))
+                .ordered()
+                .matches("VALUES 2, 3, 1");
     }
 
     @Test
