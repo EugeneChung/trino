@@ -359,8 +359,23 @@ setQuantifier
 
 selectItem
     : expression (AS? identifier)?                          #selectSingle
-    | primaryExpression '.' ASTERISK (AS columnAliases)?    #selectAll
-    | ASTERISK                                              #selectAll
+    | primaryExpression '.' ASTERISK
+        excludeClause? replaceClause?
+        (AS columnAliases)?                                 #selectAll
+    | ASTERISK
+        excludeClause? replaceClause?                       #selectAll
+    ;
+
+excludeClause
+    : EXCLUDE '(' qualifiedName (',' qualifiedName)* ')'
+    ;
+
+replaceClause
+    : REPLACE '(' replaceItem (',' replaceItem)* ')'
+    ;
+
+replaceItem
+    : expression AS identifier
     ;
 
 relation
@@ -1048,7 +1063,7 @@ nonReserved
     | BEGIN | BERNOULLI | BOTH | BRANCH | BRANCHES
     | CALL | CALLED | CASCADE | CATALOG | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | CORRESPONDING | COUNT | CURRENT
     | DATA | DATE | DAY | DECLARE | DEFAULT | DEFINE | DEFINER | DENY | DESC | DESCRIPTOR | DETERMINISTIC | DISTRIBUTED | DO | DOUBLE
-    | ELSEIF | EMPTY | ENCODING | ERROR | EXCLUDING | EXECUTE | EXPLAIN
+    | ELSEIF | EMPTY | ENCODING | ERROR | EXCLUDE | EXCLUDING | EXECUTE | EXPLAIN
     | FAIL | FAST | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FORWARD | FUNCTION | FUNCTIONS
     | GRACE | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
@@ -1150,6 +1165,7 @@ END: 'END';
 ERROR: 'ERROR';
 ESCAPE: 'ESCAPE';
 EXCEPT: 'EXCEPT';
+EXCLUDE: 'EXCLUDE';
 EXCLUDING: 'EXCLUDING';
 EXECUTE: 'EXECUTE';
 EXISTS: 'EXISTS';

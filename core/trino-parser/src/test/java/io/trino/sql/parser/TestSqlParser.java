@@ -671,6 +671,48 @@ public class TestSqlParser
     }
 
     @Test
+    public void testAllColumnsExcludeReplace()
+    {
+        AllColumns parsed = parseAllColumns("SELECT * EXCLUDE (city) FROM addresses");
+        assertThat(parsed.getTarget()).isEmpty();
+        assertThat(parsed.getExcludeList())
+                .extracting(QualifiedName::toString)
+                .containsExactly("city");
+        assertThat(parsed.getReplaceList()).isEmpty();
+
+        parsed = parseAllColumns("SELECT t.* EXCLUDE (city) FROM addresses t");
+        assertThat(parsed.getTarget()).isPresent();
+        assertThat(parsed.getExcludeList())
+                .extracting(QualifiedName::toString)
+                .containsExactly("city");
+
+        parsed = parseAllColumns("SELECT * REPLACE (lower(city) AS city) FROM addresses");
+        assertThat(parsed.getReplaceList())
+                .extracting(item -> item.getColumnName().getValue())
+                .containsExactly("city");
+        assertThat(parsed.getReplaceList().getFirst().getExpression()).isInstanceOf(FunctionCall.class);
+
+        parsed = parseAllColumns("SELECT * EXCLUDE (a) REPLACE (lower(b) AS b) FROM t");
+        assertThat(parsed.getExcludeList()).extracting(QualifiedName::toString).containsExactly("a");
+        assertThat(parsed.getReplaceList()).extracting(item -> item.getColumnName().getValue()).containsExactly("b");
+
+        assertStatementIsInvalid("SELECT * EXCLUDE (a, a) FROM t")
+                .withMessageMatching("line 1:\\d+: Duplicate entry \"a\" in EXCLUDE list");
+        assertStatementIsInvalid("SELECT * REPLACE (1 AS a, 2 AS a) FROM t")
+                .withMessageMatching("line 1:\\d+: Duplicate entry \"a\" in REPLACE list");
+        assertStatementIsInvalid("SELECT * EXCLUDE (a) REPLACE (1 AS a) FROM t")
+                .withMessageMatching("line 1:\\d+: Column \"a\" cannot occur in both EXCLUDE and REPLACE list");
+    }
+
+    private static AllColumns parseAllColumns(String sql)
+    {
+        Query query = (Query) SQL_PARSER.createStatement(sql);
+        QuerySpecification spec = (QuerySpecification) query.getQueryBody();
+        SelectItem item = spec.getSelect().getSelectItems().getFirst();
+        return (AllColumns) item;
+    }
+
+    @Test
     public void testDouble()
     {
         NodeLocation location = new NodeLocation(1, 1);

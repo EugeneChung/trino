@@ -432,6 +432,11 @@ public abstract class AstVisitor<R, C>
         return visitSelectItem(node, context);
     }
 
+    protected R visitReplaceItem(ReplaceItem node, C context)
+    {
+        return visitNode(node, context);
+    }
+
     protected R visitSearchedCaseExpression(SearchedCaseExpression node, C context)
     {
         return visitExpression(node, context);

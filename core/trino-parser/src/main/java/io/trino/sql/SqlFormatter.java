@@ -841,6 +841,22 @@ public final class SqlFormatter
                     .append("."));
             builder.append("*");
 
+            if (!node.getExcludeList().isEmpty()) {
+                builder.append(" EXCLUDE (")
+                        .append(Joiner.on(", ").join(node.getExcludeList().stream()
+                                .map(SqlFormatter::formatName)
+                                .collect(toImmutableList())))
+                        .append(")");
+            }
+
+            if (!node.getReplaceList().isEmpty()) {
+                builder.append(" REPLACE (")
+                        .append(Joiner.on(", ").join(node.getReplaceList().stream()
+                                .map(item -> formatExpression(item.getExpression()) + " AS " + formatName(item.getColumnName()))
+                                .collect(toImmutableList())))
+                        .append(")");
+            }
+
             if (!node.getAliases().isEmpty()) {
                 builder.append(" AS (")
                         .append(Joiner.on(", ").join(node.getAliases().stream()

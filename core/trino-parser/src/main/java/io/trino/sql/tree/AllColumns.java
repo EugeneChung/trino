@@ -27,37 +27,59 @@ public class AllColumns
 {
     private final List<Identifier> aliases;
     private final Optional<Expression> target;
+    private final List<QualifiedName> excludeList;
+    private final List<ReplaceItem> replaceList;
 
     @Deprecated
     public AllColumns()
     {
-        this(Optional.empty(), Optional.empty(), ImmutableList.of());
+        this(Optional.empty(), Optional.empty(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
     }
 
     @Deprecated
     public AllColumns(Expression target, List<Identifier> aliases)
     {
-        this(Optional.empty(), Optional.of(target), aliases);
+        this(Optional.empty(), Optional.of(target), aliases, ImmutableList.of(), ImmutableList.of());
     }
 
     @Deprecated
     public AllColumns(Optional<NodeLocation> location, Optional<Expression> target, List<Identifier> aliases)
     {
+        this(location, target, aliases, ImmutableList.of(), ImmutableList.of());
+    }
+
+    private AllColumns(
+            Optional<NodeLocation> location,
+            Optional<Expression> target,
+            List<Identifier> aliases,
+            List<QualifiedName> excludeList,
+            List<ReplaceItem> replaceList)
+    {
         super(location);
         this.aliases = ImmutableList.copyOf(requireNonNull(aliases, "aliases is null"));
         this.target = requireNonNull(target, "target is null");
+        this.excludeList = ImmutableList.copyOf(requireNonNull(excludeList, "excludeList is null"));
+        this.replaceList = ImmutableList.copyOf(requireNonNull(replaceList, "replaceList is null"));
     }
 
     public AllColumns(NodeLocation location)
     {
-        this(location, Optional.empty(), ImmutableList.of());
+        this(location, Optional.empty(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
     }
 
     public AllColumns(NodeLocation location, Optional<Expression> target, List<Identifier> aliases)
     {
-        super(location);
-        this.aliases = ImmutableList.copyOf(aliases);
-        this.target = requireNonNull(target, "target is null");
+        this(location, target, aliases, ImmutableList.of(), ImmutableList.of());
+    }
+
+    public AllColumns(
+            NodeLocation location,
+            Optional<Expression> target,
+            List<Identifier> aliases,
+            List<QualifiedName> excludeList,
+            List<ReplaceItem> replaceList)
+    {
+        this(Optional.of(location), target, aliases, excludeList, replaceList);
     }
 
     public List<Identifier> getAliases()
@@ -70,6 +92,16 @@ public class AllColumns
         return target;
     }
 
+    public List<QualifiedName> getExcludeList()
+    {
+        return excludeList;
+    }
+
+    public List<ReplaceItem> getReplaceList()
+    {
+        return replaceList;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
@@ -79,8 +111,10 @@ public class AllColumns
     @Override
     public List<Node> getChildren()
     {
-        return target.map(ImmutableList::<Node>of)
-                .orElse(ImmutableList.of());
+        ImmutableList.Builder<Node> children = ImmutableList.builder();
+        target.ifPresent(children::add);
+        children.addAll(replaceList);
+        return children.build();
     }
 
     @Override
@@ -95,13 +129,15 @@ public class AllColumns
 
         AllColumns other = (AllColumns) o;
         return Objects.equals(aliases, other.aliases) &&
-                Objects.equals(target, other.target);
+                Objects.equals(target, other.target) &&
+                Objects.equals(excludeList, other.excludeList) &&
+                Objects.equals(replaceList, other.replaceList);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(aliases, target);
+        return Objects.hash(aliases, target, excludeList, replaceList);
     }
 
     @Override
@@ -111,6 +147,18 @@ public class AllColumns
 
         target.ifPresent(value -> builder.append(value).append("."));
         builder.append("*");
+
+        if (!excludeList.isEmpty()) {
+            builder.append(" EXCLUDE (");
+            Joiner.on(", ").appendTo(builder, excludeList);
+            builder.append(")");
+        }
+
+        if (!replaceList.isEmpty()) {
+            builder.append(" REPLACE (");
+            Joiner.on(", ").appendTo(builder, replaceList);
+            builder.append(")");
+        }
 
         if (!aliases.isEmpty()) {
             builder.append(" (");
@@ -128,6 +176,8 @@ public class AllColumns
             return false;
         }
 
-        return aliases.equals(((AllColumns) other).aliases);
+        AllColumns that = (AllColumns) other;
+        return aliases.equals(that.aliases) &&
+                excludeList.equals(that.excludeList);
     }
 }

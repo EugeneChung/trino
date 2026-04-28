@@ -228,6 +228,7 @@ import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameSchema;
 import io.trino.sql.tree.RenameTable;
 import io.trino.sql.tree.RenameView;
+import io.trino.sql.tree.ReplaceItem;
 import io.trino.sql.tree.ResetSession;
 import io.trino.sql.tree.ResetSessionAuthorization;
 import io.trino.sql.tree.Revoke;
@@ -5060,6 +5061,9 @@ class StatementAnalyzer
                     }
                 }
                 // identifierChainBasis.get().getBasisType == FIELD or target expression isn't a QualifiedName
+                if (!allColumns.getExcludeList().isEmpty() || !allColumns.getReplaceList().isEmpty()) {
+                    throw semanticException(NOT_SUPPORTED, allColumns, "EXCLUDE and REPLACE are not supported with row type expressions");
+                }
                 analyzeAllFieldsFromRowTypeExpression(expression, allColumns, node, scope, outputExpressionBuilder, selectExpressionBuilder);
             }
             else {
@@ -5135,14 +5139,35 @@ class StatementAnalyzer
                 RelationType relationType,
                 boolean local)
         {
+            List<QualifiedName> excludeList = allColumns.getExcludeList();
+            List<ReplaceItem> replaceList = allColumns.getReplaceList();
+
+            Map<String, Expression> replaceMap = new LinkedHashMap<>();
+            for (ReplaceItem item : replaceList) {
+                replaceMap.put(item.getColumnName().getValue().toLowerCase(ENGLISH), item.getExpression());
+            }
+            Set<Integer> matchedExcludes = new HashSet<>();
+            Set<String> matchedReplaces = new HashSet<>();
+
+            int retainedCount = 0;
+            for (Field field : fields) {
+                if (matchesExcludeList(field, excludeList, matchedExcludes) == -1) {
+                    retainedCount++;
+                }
+            }
+
             if (!allColumns.getAliases().isEmpty()) {
-                validateColumnAliasesCount(allColumns.getAliases(), fields.size());
+                validateColumnAliasesCount(allColumns.getAliases(), retainedCount);
             }
 
             ImmutableList.Builder<Field> itemOutputFieldBuilder = ImmutableList.builder();
+            int aliasIndex = 0;
 
-            for (int i = 0; i < fields.size(); i++) {
-                Field field = fields.get(i);
+            for (Field field : fields) {
+                if (matchesExcludeList(field, excludeList, matchedExcludes) != -1) {
+                    continue;
+                }
+
                 Expression fieldExpression;
                 if (local) {
                     fieldExpression = new FieldReference(relationType.indexOf(field));
@@ -5154,29 +5179,73 @@ class StatementAnalyzer
                     checkState(field.getRelationAlias().isPresent(), "missing relation alias");
                     fieldExpression = new DereferenceExpression(DereferenceExpression.from(field.getRelationAlias().get()), new Identifier(field.getName().get()));
                 }
+
+                String fieldNameLower = field.getName().map(name -> name.toLowerCase(ENGLISH)).orElse(null);
+                if (fieldNameLower != null && replaceMap.containsKey(fieldNameLower)) {
+                    fieldExpression = replaceMap.get(fieldNameLower);
+                    matchedReplaces.add(fieldNameLower);
+                }
+
                 analyzeExpression(fieldExpression, scope);
                 outputExpressionBuilder.add(fieldExpression);
                 selectExpressionBuilder.add(new SelectExpression(fieldExpression, Optional.empty()));
 
                 Optional<String> alias = field.getName();
                 if (!allColumns.getAliases().isEmpty()) {
-                    alias = Optional.of(allColumns.getAliases().get(i).getValue());
+                    alias = Optional.of(allColumns.getAliases().get(aliasIndex).getValue());
+                }
+                aliasIndex++;
+
+                Type type;
+                if (fieldNameLower != null && matchedReplaces.contains(fieldNameLower)) {
+                    type = analysis.getType(fieldExpression);
+                }
+                else {
+                    type = field.getType();
                 }
 
                 Field newField = field.rebuild()
                         .name(alias)
+                        .type(type)
                         .hidden(false)
                         .aliased(!allColumns.getAliases().isEmpty() || field.isAliased())
                         .build();
                 itemOutputFieldBuilder.add(newField);
                 analysis.addSourceColumns(newField, analysis.getSourceColumns(field));
 
-                Type type = field.getType();
                 if (node.getSelect().isDistinct() && !type.isComparable()) {
                     throw semanticException(TYPE_MISMATCH, node.getSelect(), "DISTINCT can only be applied to comparable types (actual: %s)", type);
                 }
             }
+
+            if (matchedExcludes.size() != excludeList.size()) {
+                for (int i = 0; i < excludeList.size(); i++) {
+                    if (!matchedExcludes.contains(i)) {
+                        throw semanticException(COLUMN_NOT_FOUND, allColumns, "Column \"%s\" in EXCLUDE list not found in relation", excludeList.get(i));
+                    }
+                }
+            }
+
+            if (matchedReplaces.size() != replaceMap.size()) {
+                for (Map.Entry<String, Expression> entry : replaceMap.entrySet()) {
+                    if (!matchedReplaces.contains(entry.getKey())) {
+                        throw semanticException(COLUMN_NOT_FOUND, allColumns, "Column \"%s\" in REPLACE list not found in relation", entry.getKey());
+                    }
+                }
+            }
+
             analysis.setSelectAllResultFields(allColumns, itemOutputFieldBuilder.build());
+        }
+
+        private static int matchesExcludeList(Field field, List<QualifiedName> excludeList, Set<Integer> matchedExcludes)
+        {
+            for (int i = 0; i < excludeList.size(); i++) {
+                if (field.canResolve(excludeList.get(i))) {
+                    matchedExcludes.add(i);
+                    return i;
+                }
+            }
+            return -1;
         }
 
         private void analyzeAllFieldsFromRowTypeExpression(

@@ -237,6 +237,7 @@ import io.trino.sql.tree.RenameSchema;
 import io.trino.sql.tree.RenameTable;
 import io.trino.sql.tree.RenameView;
 import io.trino.sql.tree.RepeatStatement;
+import io.trino.sql.tree.ReplaceItem;
 import io.trino.sql.tree.ResetSession;
 import io.trino.sql.tree.ResetSessionAuthorization;
 import io.trino.sql.tree.ReturnStatement;
@@ -330,6 +331,7 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -1505,10 +1507,59 @@ class AstBuilder
             aliases = visit(context.columnAliases().identifier(), Identifier.class);
         }
 
+        List<QualifiedName> excludeList = ImmutableList.of();
+        if (context.excludeClause() != null) {
+            ImmutableList.Builder<QualifiedName> builder = ImmutableList.builder();
+            Set<List<String>> seen = new HashSet<>();
+            for (SqlBaseParser.QualifiedNameContext nameContext : context.excludeClause().qualifiedName()) {
+                QualifiedName name = getQualifiedName(nameContext);
+                List<String> key = name.getOriginalParts().stream()
+                        .map(identifier -> identifier.getValue().toLowerCase(ENGLISH))
+                        .collect(toImmutableList());
+                if (!seen.add(key)) {
+                    throw parseError("Duplicate entry \"" + name + "\" in EXCLUDE list", nameContext);
+                }
+                builder.add(name);
+            }
+            excludeList = builder.build();
+        }
+
+        List<ReplaceItem> replaceList = ImmutableList.of();
+        if (context.replaceClause() != null) {
+            ImmutableList.Builder<ReplaceItem> builder = ImmutableList.builder();
+            Set<String> seenAliases = new HashSet<>();
+            for (SqlBaseParser.ReplaceItemContext itemContext : context.replaceClause().replaceItem()) {
+                Identifier columnName = (Identifier) visit(itemContext.identifier());
+                String key = columnName.getValue().toLowerCase(ENGLISH);
+                if (!seenAliases.add(key)) {
+                    throw parseError("Duplicate entry \"" + columnName.getValue() + "\" in REPLACE list", itemContext);
+                }
+                builder.add(new ReplaceItem(
+                        getLocation(itemContext),
+                        (Expression) visit(itemContext.expression()),
+                        columnName));
+            }
+            replaceList = builder.build();
+        }
+
+        for (ReplaceItem item : replaceList) {
+            String alias = item.getColumnName().getValue().toLowerCase(ENGLISH);
+            for (QualifiedName excluded : excludeList) {
+                List<Identifier> parts = excluded.getOriginalParts();
+                if (parts.get(parts.size() - 1).getValue().toLowerCase(ENGLISH).equals(alias)) {
+                    throw parseError(
+                            "Column \"" + item.getColumnName().getValue() + "\" cannot occur in both EXCLUDE and REPLACE list",
+                            context);
+                }
+            }
+        }
+
         return new AllColumns(
                 getLocation(context),
                 visitIfPresent(context.primaryExpression(), Expression.class),
-                aliases);
+                aliases,
+                excludeList,
+                replaceList);
     }
 
     @Override

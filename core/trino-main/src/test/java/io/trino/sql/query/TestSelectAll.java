@@ -186,6 +186,44 @@ public class TestSelectAll
     }
 
     @Test
+    public void testSelectAllExcludeReplace()
+    {
+        // EXCLUDE single column
+        assertThat(assertions.query("SELECT * EXCLUDE (b) FROM (VALUES (1, 2, 3)) t(a, b, c)"))
+                .matches("VALUES (1, 3)");
+
+        // EXCLUDE multiple
+        assertThat(assertions.query("SELECT * EXCLUDE (a, c) FROM (VALUES (1, 2, 3)) t(a, b, c)"))
+                .matches("VALUES 2");
+
+        // REPLACE preserves column position and name
+        assertThat(assertions.query("SELECT * REPLACE (a + 10 AS a) FROM (VALUES (1, 'x')) t(a, b)"))
+                .matches("VALUES (11, 'x')");
+
+        // REPLACE with function
+        assertThat(assertions.query("SELECT * REPLACE (lower(b) AS b) FROM (VALUES (1, 'X')) t(a, b)"))
+                .matches("VALUES (1, 'x')");
+
+        // EXCLUDE + REPLACE combined
+        assertThat(assertions.query("SELECT * EXCLUDE (a) REPLACE (lower(b) AS b) FROM (VALUES (1, 'X', 3)) t(a, b, c)"))
+                .matches("VALUES ('x', 3)");
+
+        // qualified-target form
+        assertThat(assertions.query("SELECT t.* EXCLUDE (b) FROM (VALUES (1, 2, 3)) t(a, b, c)"))
+                .matches("VALUES (1, 3)");
+
+        // case insensitivity
+        assertThat(assertions.query("SELECT * EXCLUDE (B) FROM (VALUES (1, 2, 3)) t(a, b, c)"))
+                .matches("VALUES (1, 3)");
+
+        // unmatched EXCLUDE / REPLACE
+        assertThat(assertions.query("SELECT * EXCLUDE (missing) FROM (VALUES (1)) t(a)"))
+                .failure().hasMessageMatching(".*Column \"missing\" in EXCLUDE list not found in relation.*");
+        assertThat(assertions.query("SELECT * REPLACE (1 AS missing) FROM (VALUES (1)) t(a)"))
+                .failure().hasMessageMatching(".*Column \"missing\" in REPLACE list not found in relation.*");
+    }
+
+    @Test
     public void testSelectAllFromOuterScopeTable()
     {
         // scalar subquery

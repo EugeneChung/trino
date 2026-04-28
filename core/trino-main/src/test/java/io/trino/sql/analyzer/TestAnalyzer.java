@@ -452,6 +452,28 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testSelectAllExcludeReplace()
+    {
+        analyze("SELECT * EXCLUDE (a) FROM (VALUES (1, 2)) t(a, b)");
+        analyze("SELECT * EXCLUDE (b) FROM (VALUES (1, 2, 3)) t(a, b, c)");
+        analyze("SELECT * REPLACE (a + 1 AS a) FROM (VALUES (1, 2)) t(a, b)");
+        analyze("SELECT * EXCLUDE (a) REPLACE (b + 1 AS b) FROM (VALUES (1, 2, 3)) t(a, b, c)");
+        analyze("SELECT t.* EXCLUDE (a) FROM (VALUES (1, 2)) t(a, b)");
+
+        assertFails("SELECT * EXCLUDE (nonexistent) FROM (VALUES (1, 2)) t(a, b)")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:8: Column \"nonexistent\" in EXCLUDE list not found in relation");
+
+        assertFails("SELECT * REPLACE (1 AS nonexistent) FROM (VALUES (1, 2)) t(a, b)")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessage("line 1:8: Column \"nonexistent\" in REPLACE list not found in relation");
+
+        assertFails("SELECT ROW(1, 2).* EXCLUDE (foo)")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:8: EXCLUDE and REPLACE are not supported with row type expressions");
+    }
+
+    @Test
     public void testTemporalTableVersion()
     {
         // valid temporal version pointer
