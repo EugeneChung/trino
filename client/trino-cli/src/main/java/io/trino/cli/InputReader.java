@@ -52,7 +52,7 @@ public class InputReader
         LineReaderBuilder builder = LineReaderBuilder.builder()
                 .terminal(TerminalUtils.getTerminal())
                 .variable(HISTORY_FILE, historyFile)
-                .variable(SECONDARY_PROMPT_PATTERN, isRealTerminal() ? colored("%P -> ") : "") // workaround for https://github.com/jline/jline3/issues/751
+                .variable(SECONDARY_PROMPT_PATTERN, isRealTerminal() ? "%P " : "") // workaround for https://github.com/jline/jline3/issues/751
                 .variable(BLINK_MATCHING_PAREN, 0)
                 .option(HISTORY_IGNORE_SPACE, false) // store history even if the query starts with spaces
                 .parser(new InputParser())
